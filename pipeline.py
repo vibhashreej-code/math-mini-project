@@ -1,23 +1,25 @@
 """Main staged script (owner: A, pipeline lead).
 
-Runs the 8 stages in order and waits for a keypress between them.
-Stages 1-2 are A's. Stages 3-8 live in teammates' files and are imported
-if they exist; a missing file is skipped so the pipeline always runs.
+Runs the demo stages in order and waits for Enter between them.
+Stages 1-2 are A's. The other stages live in teammates' files and are
+imported if they exist; a missing file is skipped so the pipeline always runs.
 
-Teammate interface (agreed with the team):
-    each stage file has   run(X, S, shape)
-        X     : N x 3 pixel matrix (from stage 1)
-        S     : 3 x 3 sepia matrix (from stage 2)
-        shape : (H, W, 3), for reshaping X back into a photo
-    run() prints its numbers + a SANITY line and creates matplotlib figures
-    (do NOT call plt.show() inside run; this script does that).
+Each teammate file should have a function   run(X, S, shape)
+    X     : N x 3 pixel matrix (from stage 1)
+    S     : 3 x 3 sepia matrix (from stage 2)
+    shape : (H, W, 3), for turning X back into a photo
+A run() that takes fewer arguments (e.g. run(X, S) or run(X)) also works.
+Do NOT call plt.show() inside run(); this script shows the figures.
+Put any test code under  if __name__ == "__main__":  so importing is safe.
 
 Usage:
-    python run_pipeline.py              # pauses between stages
-    python run_pipeline.py --no-pause   # runs straight through
+    python pipeline.py              # pauses between stages
+    python pipeline.py --no-pause   # runs straight through
 """
 import importlib
+import inspect
 import sys
+import traceback
 
 import matplotlib.pyplot as plt
 
@@ -26,22 +28,21 @@ import stage2_filter
 
 plt.style.use("dark_background")
 
-# (module name, title). Change a module name here if a teammate names theirs differently.
+# (stage label, module name, title). Edit a module name here if a file is renamed.
 TEAM_STAGES = [
-    (3, "stage3_rank",        "RREF / rank / inverse"),
-    (4, "stage4_gramschmidt", "Orthogonal basis (Gram-Schmidt)"),
-    (5, "stage5_projection",  "Projection"),
-    (6, "stage6_lstsq",       "Least squares"),
-    (7, "stage7_eigen",       "Eigenvalues / eigenvectors"),
-    (8, "stage8_reduced",     "Reduced model (PCA)"),
+    ("3",   "stage3_rref_rank_inverse", "RREF / rank / inverse"),
+    ("4",   "stage4_gramschmidt",       "Orthogonal basis (Gram-Schmidt)"),
+    ("5",   "stage5_projection",        "Projection"),
+    ("6",   "stage6_lstsq",             "Least squares"),
+    ("7-8", "stage7_8_eigen_pca",       "Eigenvalues / eigenvectors and reduced model (PCA)"),
 ]
 
 PAUSE = "--no-pause" not in sys.argv
 
 
-def banner(n, title):
+def banner(label, title):
     print("\n" + "=" * 60)
-    print(f" STAGE {n}: {title}")
+    print(f" STAGE {label}: {title}")
     print("=" * 60)
 
 
@@ -53,30 +54,59 @@ def pause():
     plt.close("all")
 
 
+def call_run(mod, X, S, shape):
+    """Call mod.run with as many of (X, S, shape) as it accepts."""
+    fn = getattr(mod, "run", None)
+    if fn is None:
+        funcs = [n for n, f in vars(mod).items()
+                 if inspect.isfunction(f) and f.__module__ == mod.__name__
+                 and not n.startswith("_")]
+        print(f"  ({mod.__name__}.py has no run() function. Functions found: {funcs})")
+        return False
+    params = inspect.signature(fn).parameters.values()
+    if any(p.kind == p.VAR_POSITIONAL for p in params):
+        n = 3
+    else:
+        n = len([p for p in params
+                 if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)])
+    fn(*(X, S, shape)[:n])
+    return True
+
+
 def main():
     # Stage 1 (A)
-    banner(1, "Matrix representation")
+    banner("1", "Matrix representation")
     X, shape = stage1_matrix.run()
     pause()
 
     # Stage 2 (A)
-    banner(2, "Matrix multiplication")
+    banner("2", "Matrix multiplication")
     stage2_filter.run(X, shape)
     S = stage2_filter.SEPIA
     pause()
 
-    # Stages 3-8 (teammates)
-    for n, modname, title in TEAM_STAGES:
-        banner(n, title)
+    # Teammates' stages
+    for label, modname, title in TEAM_STAGES:
+        banner(label, title)
         try:
             mod = importlib.import_module(modname)
         except ModuleNotFoundError as e:
-            if e.name != modname:      # a real import error inside their file
-                raise
-            print(f"  ({modname}.py not found yet, skipping)")
+            if e.name != modname:          # a real import error inside their file
+                print(f"  (error while importing {modname}.py: {e})")
+            else:
+                print(f"  ({modname}.py not found yet, skipping)")
             continue
-        mod.run(X, S, shape)
-        pause()
+        except Exception:
+            print(f"  (error while importing {modname}.py:)")
+            traceback.print_exc()
+            continue
+        try:
+            if call_run(mod, X, S, shape):
+                pause()
+        except Exception:
+            print(f"  (stage {label} crashed, moving on:)")
+            traceback.print_exc()
+            plt.close("all")
 
     print("\nPipeline finished.")
 
