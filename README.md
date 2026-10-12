@@ -74,7 +74,11 @@ Each stage file has a function `run(X, S, shape)`:
 
 ## Team
 
-Fill in your names and the stages each person owns.
+V.HEMA PRIYA 
+VIBHASHREE.J
+NITHYASREE THOTA
+YUKHTHA K.B
+
 
 - Pipeline lead (stages 1-2 and `pipeline.py`): 
 - Stage 3: 
