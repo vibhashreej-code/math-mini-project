@@ -1,16 +1,20 @@
 """
-Stages 7 and 8: Eigen-analysis of pixel colors (PCA) and the reduced model.
+stage7_8_eigen_pca.py  --  TEAM FILE (functions only, no main, no test)
+
+Stage 7: eigenvalues / eigenvectors of the pixel color covariance (PCA)
+Stage 8: final reduced model (compress 3 colors down to k, then rebuild)
 
 Interface (agreed with the team):
-    X         : (N, 3) float array, each row is one pixel [R, G, B] scaled 0..1
-    img_shape : (H, W, 3) shape of the original image, needed to rebuild it
+    X         : (N, 3) float array, each row is one pixel [R, G, B], scaled 0..1
+    img_shape : (H, W, 3), shape of the original image (needed to rebuild it)
 
-Run this file directly to test it on a dummy image, or on a real photo:
-    python stage7_8_eigen_pca.py
-    python stage7_8_eigen_pca.py my_photo.jpg
+How the main script uses this file:
+    from stage7_8_eigen_pca import stage7_eigen, stage8_reduce
+
+    mean, eigvals, eigvecs = stage7_eigen(X)
+    X_rebuilt, var_kept, rmse = stage8_reduce(X, img_shape, mean, eigvals, eigvecs, k=2)
 """
 
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -143,7 +147,7 @@ def stage8_reduce(X, img_shape, mean, eigvals, eigvecs, k=2, show=True):
     print(f"Rebuild error (RMSE, scale 0-1): {rmse:.4f}")
 
     # ---- sanity check ----
-    # With k = 3 nothing is thrown away, so the rebuild must be perfect.
+    # With all 3 components nothing is thrown away, so the rebuild is perfect.
     Z3 = (X - mean) @ eigvecs
     X3 = Z3 @ eigvecs.T + mean
     print(f"Check: rebuild with all 3 components, max error = "
@@ -171,31 +175,3 @@ def _plot_reduced(X, X_rebuilt, img_shape, k, variance_kept):
     fig.suptitle("Stage 8: Reduced model", fontsize=16)
     plt.tight_layout()
     plt.show()
-
-
-# ---------------------------------------------------------------------------
-# Standalone test (not used when A's main script imports these functions)
-# ---------------------------------------------------------------------------
-def _load_or_make_image():
-    """Load a photo if a path is given, otherwise make a dummy colorful one."""
-    if len(sys.argv) > 1:
-        from PIL import Image
-        img = Image.open(sys.argv[1]).convert("RGB").resize((100, 100))
-        return np.asarray(img, dtype=float) / 255.0
-
-    rng = np.random.default_rng(0)  # fixed seed
-    h = w = 100
-    yy, xx = np.mgrid[0:h, 0:w] / (h - 1)
-    r = 0.2 + 0.7 * xx
-    g = 0.1 + 0.5 * xx + 0.3 * yy
-    b = 0.8 - 0.5 * yy
-    img = np.stack([r, g, b], axis=2) + rng.normal(0, 0.03, (h, w, 3))
-    return np.clip(img, 0, 1)
-
-
-if __name__ == "__main__":
-    img = _load_or_make_image()
-    X = img.reshape(-1, 3)  # image -> N x 3 matrix (this is Stage 1's job)
-
-    mean, eigvals, eigvecs = stage7_eigen(X)
-    stage8_reduce(X, img.shape, mean, eigvals, eigvecs, k=2)
