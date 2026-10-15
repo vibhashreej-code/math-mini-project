@@ -8,9 +8,11 @@ Interface (agreed with the team):
     X         : (N, 3) float array, each row is one pixel [R, G, B], scaled 0..1
     img_shape : (H, W, 3), shape of the original image (needed to rebuild it)
 
-How the main script uses this file:
-    from stage7_8_eigen_pca import stage7_eigen, stage8_reduce
+How pipeline.py uses this file:
+    run(X, S, shape) does stage 7 then stage 8 and builds the figures.
+    pipeline.py shows them, so run() never calls plt.show().
 
+Using the functions on their own (e.g. in a test file):
     mean, eigvals, eigvecs = stage7_eigen(X)
     X_rebuilt, var_kept, rmse = stage8_reduce(X, img_shape, mean, eigvals, eigvecs, k=2)
 """
@@ -78,6 +80,7 @@ def stage7_eigen(X, show=True):
 
     if show:
         _plot_eigen(X, mean, eigvals, eigvecs)
+        plt.show()
 
     return mean, eigvals, eigvecs
 
@@ -89,18 +92,28 @@ def _plot_eigen(X, mean, eigvals, eigvecs, max_points=1500):
     pts = X[idx]
 
     fig, ax = plt.subplots(figsize=(8, 7))
-    ax.scatter(pts[:, 0], pts[:, 1], s=8, alpha=0.35, color="tab:blue",
+    ax.scatter(pts[:, 0], pts[:, 1], s=8, alpha=0.5, color="deepskyblue",
                label="pixels")
-    ax.scatter(*mean[:2], color="black", s=60, zorder=5, label="mean color")
+    ax.scatter(*mean[:2], color="yellow", edgecolor="black", s=70, zorder=5,
+               label="mean color")
 
     colors = ["tab:orange", "tab:green", "tab:red"]
+    tips = []
     for i in range(3):
         # Arrow length = 2 standard deviations along that direction.
         v = eigvecs[:, i] * 2 * np.sqrt(eigvals[i])
-        ax.annotate("", xy=mean[:2] + v[:2], xytext=mean[:2],
+        tips.append(mean[:2] + v[:2])
+        # annotation_clip=False: draw the arrow even if its tip is outside the axes
+        ax.annotate("", xy=mean[:2] + v[:2], xytext=mean[:2], annotation_clip=False,
                     arrowprops=dict(arrowstyle="->", color=colors[i], lw=3))
         ax.plot([], [], color=colors[i], lw=3,
                 label=f"direction {i+1} ({eigvals[i]/eigvals.sum()*100:.0f}%)")
+
+    # Make the plot window big enough to contain the pixels AND every arrow tip.
+    allx = np.concatenate([pts[:, 0], [t[0] for t in tips]])
+    ally = np.concatenate([pts[:, 1], [t[1] for t in tips]])
+    ax.set_xlim(allx.min() - 0.05, allx.max() + 0.05)
+    ax.set_ylim(ally.min() - 0.05, ally.max() + 0.05)
 
     ax.set_xlabel("Red", fontsize=14)
     ax.set_ylabel("Green", fontsize=14)
@@ -110,7 +123,6 @@ def _plot_eigen(X, mean, eigvals, eigvecs, max_points=1500):
     ax.set_aspect("equal")
     ax.grid(alpha=0.3)
     plt.tight_layout()
-    plt.show()
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +167,7 @@ def stage8_reduce(X, img_shape, mean, eigvals, eigvecs, k=2, show=True):
 
     if show:
         _plot_reduced(X, X_rebuilt, img_shape, k, variance_kept)
+        plt.show()
 
     return X_rebuilt, variance_kept, rmse
 
@@ -174,4 +187,24 @@ def _plot_reduced(X, X_rebuilt, img_shape, k, variance_kept):
         ax.axis("off")
     fig.suptitle("Stage 8: Reduced model", fontsize=16)
     plt.tight_layout()
-    plt.show()
+
+
+# ---------------------------------------------------------------------------
+# PIPELINE HOOK: this is what pipeline.py calls
+# ---------------------------------------------------------------------------
+def run(X, S=None, shape=None, k=2):
+    """
+    Stages 7 and 8 back to back (stage 8 uses stage 7's output).
+    X     : (N, 3) pixel matrix from stage 1
+    S     : sepia matrix from stage 2 (not needed here, accepted for the interface)
+    shape : (H, W, 3) photo shape from stage 1
+    k     : number of color directions to keep in stage 8
+    """
+    # Stage 7: find the dominant color directions
+    mean, eigvals, eigvecs = stage7_eigen(X, show=False)
+    _plot_eigen(X, mean, eigvals, eigvecs)
+
+    # Stage 8: keep the top k of those directions and rebuild the photo
+    X_rebuilt, variance_kept, _ = stage8_reduce(
+        X, shape, mean, eigvals, eigvecs, k=k, show=False)
+    _plot_reduced(X, X_rebuilt, shape, k, variance_kept)
