@@ -21,7 +21,7 @@ def gram_schmidt(V):
     return Q
 
 
-def stage4_orthogonal_basis(X=None, S=None, show=True):
+def stage4_orthogonal_basis(X=None, S=None, show=True, plot=True):
     """X, S accepted for the shared interface; the basis itself is fixed.
     Returns Q (3x3): column 0 = brightness, columns 1-2 = color differences."""
     # Start vectors: white (brightness), red, green
@@ -40,7 +40,7 @@ def stage4_orthogonal_basis(X=None, S=None, show=True):
     ok = np.allclose(Q.T @ Q, np.eye(3))
     print(f"  Sanity check Q^T Q == I: {ok}")
 
-    if show:
+    if plot:
         apply_style()
         fig = plt.figure(figsize=(6, 6))
         ax = fig.add_subplot(111, projection="3d")
@@ -53,8 +53,14 @@ def stage4_orthogonal_basis(X=None, S=None, show=True):
         ax.set_xlabel("R"); ax.set_ylabel("G"); ax.set_zlabel("B")
         ax.set_title("Stage 4: Orthonormal basis for RGB space")
         plt.tight_layout()
-        plt.show()
+        if show:
+            plt.show()
     return Q
+
+
+def run(X=None, S=None, shape=None):
+    """Pipeline hook: builds the figure, pipeline.py shows it."""
+    stage4_orthogonal_basis(X, S, show=False)
 
 
 if __name__ == "__main__":
