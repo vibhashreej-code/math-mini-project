@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from plot_style import COLORS, apply_style
 
 
-def stage5_projection(X, S=None, u=None, shape=None, show=True):
+def stage5_projection(X, S=None, u=None, shape=None, show=True, plot=True):
     """X: N x 3 pixel matrix (values 0..1). u: unit brightness direction
     (pass Q[:, 0] from stage 4, or leave None for [1,1,1]/sqrt(3)).
     shape: (H, W) to reshape for display. Returns (X_proj, P)."""
@@ -30,7 +30,7 @@ def stage5_projection(X, S=None, u=None, shape=None, show=True):
     print("  Check P@P == P (idempotent):", np.allclose(P @ P, P))
     print("  Check residual . u == 0   :", np.allclose(residual @ u, 0))
 
-    if show:
+    if plot:
         if shape is None:
             side = int(np.sqrt(len(X)))
             shape = (side, len(X) // side)
@@ -44,8 +44,15 @@ def stage5_projection(X, S=None, u=None, shape=None, show=True):
             a.axis("off")
         fig.suptitle("Stage 5: Projection = grayscale")
         plt.tight_layout()
-        plt.show()
+        if show:
+            plt.show()
     return X_proj, P
+
+
+def run(X, S=None, shape=None):
+    """Pipeline hook. Uses u = [1,1,1]/sqrt(3), the same brightness axis that
+    stage 4 builds first. shape from the pipeline is (H, W, 3); this stage wants (H, W)."""
+    stage5_projection(X, S, shape=None if shape is None else shape[:2], show=False)
 
 
 if __name__ == "__main__":
