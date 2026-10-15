@@ -161,6 +161,39 @@ def show_comparison(img):
     plt.show()
 
 
+def run(X, S, shape):
+    """Pipeline hook: analyse the team's sepia matrix S and the grayscale matrix
+    from stage 2, then show what 'invertible' means on the real photo."""
+    from stage2_filter import GRAY
+
+    sepia_rank = analyze_filter("SEPIA FILTER (team matrix S)", S)
+    gray_rank = analyze_filter("GRAYSCALE FILTER", GRAY)
+
+    print("\n--- FINAL COMPARISON ---")
+    print("Sepia rank:", sepia_rank, "-> all 3 color dimensions kept, so it can be undone.")
+    print("Grayscale rank:", gray_rank, "-> everything squeezed onto one brightness direction, so it cannot be undone.")
+
+    # Undo sepia by multiplying every pixel by the inverse matrix
+    sepia_X = apply_filter(X, S)
+    recovered = apply_filter(sepia_X, np.linalg.inv(S))
+    ok = sepia_rank == 3 and gray_rank == 1 and np.allclose(recovered, X)
+    print(f"SANITY: sepia rank 3, grayscale rank 1, inverse recovers the photo -> {'OK' if ok else 'FAIL'}")
+
+    fig, axes = plt.subplots(1, 4, figsize=(14, 4))
+    panels = [
+        (X, "Original"),
+        (sepia_X, "After sepia"),
+        (recovered, "Sepia undone\n(inverse matrix)"),
+        (apply_filter(X, GRAY), "After grayscale\n(cannot be undone)"),
+    ]
+    for ax, (data, title) in zip(axes, panels):
+        ax.imshow(np.clip(data, 0, 1).reshape(shape))
+        ax.set_title(title)
+        ax.axis("off")
+    fig.suptitle("Stage 3: Rank decides whether a filter can be undone")
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
+
+
 if __name__ == "__main__":
     stage3()
     img = load_or_make_image()
