@@ -33,7 +33,7 @@ TEAM_STAGES = [
     ("3",   "stage3_rref_rank_inverse", "RREF / rank / inverse"),
     ("4",   "stage4_gramschmidt",       "Orthogonal basis (Gram-Schmidt)"),
     ("5",   "stage5_projection",        "Projection"),
-    ("6",   "stage6_lstsq",             "Least squares"),
+    ("6",   "stage6_least_squares",             "Least squares"),
     ("7-8", "stage7_8_eigen_pca",       "Eigenvalues / eigenvectors and reduced model (PCA)"),
 ]
 
