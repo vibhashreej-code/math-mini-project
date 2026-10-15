@@ -7,16 +7,19 @@ import sys
 # Recover a filter matrix from before-and-after pixels
 # --------------------------------------------------
 
-def stage6():
-    # The actual Sepia filter matrix
-    true_matrix = np.array([
-        [0.393, 0.769, 0.189],
-        [0.349, 0.686, 0.168],
-        [0.272, 0.534, 0.131]
-    ])
+def stage6(img=None, true_matrix=None, show=True):
+    # The actual Sepia filter matrix (unless the pipeline passes the team matrix)
+    if true_matrix is None:
+        true_matrix = np.array([
+            [0.393, 0.769, 0.189],
+            [0.349, 0.686, 0.168],
+            [0.272, 0.534, 0.131]
+        ])
 
-    # Load an image if its path is provided
-    if len(sys.argv) > 1:
+    # Use the image from the pipeline if given, else load one if a path is provided
+    if img is not None:
+        pass
+    elif len(sys.argv) > 1:
         from PIL import Image
 
         img = Image.open(sys.argv[1]).convert("RGB")
@@ -89,7 +92,13 @@ def stage6():
         ax.axis("off")
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
+
+
+def run(X, S, shape):
+    """Pipeline hook: recover the team sepia matrix S from the before/after pixels."""
+    stage6(img=X.reshape(shape), true_matrix=S, show=False)
 
 
 if __name__ == "__main__":
